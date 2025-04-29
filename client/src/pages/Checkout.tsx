@@ -30,7 +30,15 @@ const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || '');
 
 type ServiceType = 'self-evaluation' | 'consultancy' | 'mentorship';
 
-const CheckoutForm = ({ serviceType, amount }: { serviceType: ServiceType, amount: number }) => {
+const CheckoutForm = ({ 
+  serviceType, 
+  amount,
+  clientSecret 
+}: { 
+  serviceType: ServiceType, 
+  amount: number,
+  clientSecret: string
+}) => {
   const stripe = useStripe();
   const elements = useElements();
   const { toast } = useToast();
@@ -49,32 +57,47 @@ const CheckoutForm = ({ serviceType, amount }: { serviceType: ServiceType, amoun
 
     setIsProcessing(true);
 
-    const { error, paymentIntent } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: window.location.origin,
-      },
-      redirect: 'if_required',
-    });
-
-    if (error) {
-      setPaymentStatus('error');
-      setErrorMessage(error.message || "An unexpected error occurred.");
-      toast({
-        title: "Payment Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    } else if (paymentIntent && paymentIntent.status === 'succeeded') {
+    // Check if we're using a mock client secret (for demo without Stripe)
+    if (clientSecret.startsWith('mock_')) {
+      // For demo purposes, we'll simulate a successful payment
       setPaymentStatus('success');
       toast({
-        title: "Payment Successful",
-        description: "Thank you for your purchase!",
+        title: "Payment Successful (Demo Mode)",
+        description: "This is a simulated payment since Stripe is not configured.",
       });
       // Redirect after 3 seconds on success
       setTimeout(() => {
         navigate('/');
       }, 3000);
+    } else {
+      // Real Stripe payment processing
+      const { error, paymentIntent } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: window.location.origin,
+        },
+        redirect: 'if_required',
+      });
+
+      if (error) {
+        setPaymentStatus('error');
+        setErrorMessage(error.message || "An unexpected error occurred.");
+        toast({
+          title: "Payment Failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else if (paymentIntent && paymentIntent.status === 'succeeded') {
+        setPaymentStatus('success');
+        toast({
+          title: "Payment Successful",
+          description: "Thank you for your purchase!",
+        });
+        // Redirect after 3 seconds on success
+        setTimeout(() => {
+          navigate('/');
+        }, 3000);
+      }
     }
 
     setIsProcessing(false);
@@ -111,6 +134,60 @@ const CheckoutForm = ({ serviceType, amount }: { serviceType: ServiceType, amoun
     );
   }
 
+  // For demo mode (when using mock client secret)
+  if (clientSecret.startsWith('mock_')) {
+    return (
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="bg-blue-50 rounded-lg p-4 mb-4">
+          <p className="text-blue-800 font-medium">Demo Mode</p>
+          <p className="text-blue-700 text-sm mb-2">Stripe API keys are not configured. This is a simulated checkout experience.</p>
+          <p className="text-sm text-blue-600">In a real environment, you would see the Stripe payment form here.</p>
+        </div>
+        
+        <div className="border rounded-md p-4 mb-4">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Card Information</label>
+              <div className="h-10 bg-gray-100 rounded flex items-center px-3 text-gray-400">
+                Demo card field (no actual payment will be processed)
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Expiration</label>
+                <div className="h-10 bg-gray-100 rounded flex items-center px-3 text-gray-400">MM/YY</div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">CVC</label>
+                <div className="h-10 bg-gray-100 rounded flex items-center px-3 text-gray-400">123</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex justify-between mt-6">
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={() => window.history.back()}
+            disabled={isProcessing}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back
+          </Button>
+          <Button 
+            type="submit" 
+            className="bg-primary hover:bg-primary-dark"
+            disabled={isProcessing}
+          >
+            {isProcessing ? "Processing..." : "Complete Payment (Demo)"}
+          </Button>
+        </div>
+      </form>
+    );
+  }
+  
+  // For real Stripe implementation
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <PaymentElement />
@@ -215,8 +292,9 @@ const Checkout = () => {
     );
   }
 
+  // Define options for Stripe Elements
   const appearance = {
-    theme: 'stripe',
+    theme: 'stripe' as const, // Type-safe theme value
     variables: {
       colorPrimary: '#1a56db',
     },
@@ -250,7 +328,11 @@ const Checkout = () => {
               </div>
               
               <Elements stripe={stripePromise} options={options}>
-                <CheckoutForm serviceType={serviceType} amount={amount} />
+                <CheckoutForm 
+                  serviceType={serviceType} 
+                  amount={amount} 
+                  clientSecret={clientSecret}
+                />
               </Elements>
             </CardContent>
           </Card>

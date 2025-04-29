@@ -9,13 +9,14 @@ import {
   handleSelfEvaluationPayment, 
   handleMentorshipPayment 
 } from "./controllers/paymentController";
+import { randomUUID } from 'crypto';
 
 if (!process.env.STRIPE_SECRET_KEY) {
   console.warn('Missing required Stripe secret: STRIPE_SECRET_KEY. Payment functionality will not work correctly.');
 }
 
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2023-10-16",
+  apiVersion: "2025-03-31.basil" as any,
 }) : undefined;
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -25,14 +26,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Payment routes
   app.post("/api/create-payment-intent", async (req, res) => {
     try {
-      if (!stripe) {
-        return res.status(500).json({ 
-          message: "Stripe is not configured. Please set the STRIPE_SECRET_KEY environment variable." 
+      const { amount, serviceType } = req.body;
+      
+      if (stripe) {
+        // Use real Stripe if configured
+        await createPaymentIntent(req, res, stripe);
+      } else {
+        // Mock payment intent for demo purposes
+        console.log(`Creating mock payment intent for ${serviceType} with amount ${amount}`);
+        
+        // Create a payment record
+        const payment = await storage.createPayment({
+          amount,
+          currency: "inr",
+          serviceType,
+          status: "pending",
+          paymentIntentId: `mock_pi_${randomUUID().replace(/-/g, '')}`
+        });
+        
+        // Return a mock client secret
+        // In a real Stripe implementation, this would be a secure token
+        // For demo purposes, we're just generating a random ID
+        res.json({ 
+          clientSecret: `mock_seti_${randomUUID().replace(/-/g, '')}_secret_${randomUUID().replace(/-/g, '')}`
         });
       }
-      
-      const { amount, serviceType } = req.body;
-      await createPaymentIntent(req, res, stripe);
     } catch (error: any) {
       res
         .status(500)
