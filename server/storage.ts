@@ -32,6 +32,7 @@ export interface IStorage {
   // Payments
   createPayment(data: InsertPayment): Promise<Payment>;
   getPayment(id: number): Promise<Payment | undefined>;
+  getPaymentByOrderId(orderId: string): Promise<Payment | undefined>;
   updatePaymentStatus(id: number, status: string): Promise<Payment | undefined>;
 }
 
@@ -163,6 +164,12 @@ export class MemStorage implements IStorage {
   
   async getPayment(id: number): Promise<Payment | undefined> {
     return this.payments.get(id);
+  }
+  
+  async getPaymentByOrderId(orderId: string): Promise<Payment | undefined> {
+    return Array.from(this.payments.values()).find(
+      (payment) => payment.paymentIntentId === orderId
+    );
   }
   
   async updatePaymentStatus(id: number, status: string): Promise<Payment | undefined> {
