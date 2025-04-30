@@ -1,14 +1,61 @@
 import { Link } from 'wouter';
 import { Button } from '@/components/ui/button';
+import { useEffect, useState } from 'react';
 
 const HeroSection = () => {
+  const wordSets = [
+    ['Ideate', 'Build', 'Deploy'],
+    ['Design', 'Develop', 'Disrupt'],
+    ['Think', 'Create', 'Launch']
+  ];
+  
+  const [currentSet, setCurrentSet] = useState(0);
+  const [currentWord, setCurrentWord] = useState(0);
+  const [displayWord, setDisplayWord] = useState(wordSets[0][0]);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  useEffect(() => {
+    const wordInterval = setInterval(() => {
+      setIsAnimating(true);
+      
+      // After fade out animation completes, change the word
+      setTimeout(() => {
+        let nextWord = currentWord + 1;
+        
+        // If we've shown all words in the current set
+        if (nextWord >= wordSets[currentSet].length) {
+          nextWord = 0;
+          // Move to next set
+          const nextSet = (currentSet + 1) % wordSets.length;
+          setCurrentSet(nextSet);
+          setDisplayWord(wordSets[nextSet][nextWord]);
+        } else {
+          // Just move to next word in current set
+          setDisplayWord(wordSets[currentSet][nextWord]);
+        }
+        
+        setCurrentWord(nextWord);
+        setIsAnimating(false);
+      }, 500); // Time to fade out
+      
+    }, 2000); // Total time per word
+
+    return () => clearInterval(wordInterval);
+  }, [currentWord, currentSet]);
+
   return (
     <section id="home" className="relative bg-white overflow-hidden">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
           <div>
             <h1 className="heading text-4xl md:text-5xl font-bold tracking-tight text-dark mb-6">
-              Accelerate Your <span className="text-primary">Startup Growth</span>
+              <span 
+                className={`inline-block text-primary transition-opacity duration-500 ${isAnimating ? 'opacity-0' : 'opacity-100'}`} 
+                style={{minWidth: '180px', display: 'inline-block'}}
+              >
+                {displayWord}
+              </span>{' '}
+              Your <span className="text-gray-900">Startup</span>
             </h1>
             <p className="text-lg text-gray-600 mb-8">
               StartupPulse provides the guidance, resources, and network you need to transform your vision into a thriving business.
