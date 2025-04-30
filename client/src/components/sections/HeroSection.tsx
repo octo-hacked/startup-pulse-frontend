@@ -9,39 +9,49 @@ const HeroSection = () => {
     "Think Create Launch"
   ];
   
+  // This will force a re-render when the component loads
+  const [initialized, setInitialized] = useState(false);
   const [currentPhrase, setCurrentPhrase] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
 
+  // Initial render
   useEffect(() => {
+    setInitialized(true);
+  }, []);
+
+  // Phrase rotation
+  useEffect(() => {
+    if (!initialized) return;
+    
     const phraseInterval = setInterval(() => {
       setIsAnimating(true);
       
-      // After fade out animation completes, change the phrase
       setTimeout(() => {
-        const nextPhrase = (currentPhrase + 1) % phrases.length;
-        setCurrentPhrase(nextPhrase);
+        setCurrentPhrase((prev) => (prev + 1) % phrases.length);
         setIsAnimating(false);
-      }, 500); // Time to fade out
+      }, 600);
       
-    }, 3000); // Total time per phrase
+    }, 3500);
 
     return () => clearInterval(phraseInterval);
-  }, [currentPhrase]);
+  }, [initialized, phrases.length]);
 
   return (
     <section id="home" className="relative bg-white overflow-hidden">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
           <div>
-            <h1 className="heading text-4xl md:text-5xl font-bold tracking-tight text-dark mb-6">
-              <span 
-                className={`block text-primary transition-opacity duration-500 ${isAnimating ? 'opacity-0' : 'opacity-100'}`} 
-                style={{minHeight: '60px'}}
+            <div className="mb-6">
+              <div 
+                className={`text-primary text-4xl md:text-5xl font-bold transition-opacity duration-500 ${isAnimating ? 'opacity-0' : 'opacity-100'}`}
+                style={{height: '65px', display: 'flex', alignItems: 'center'}}
               >
                 {phrases[currentPhrase]}
-              </span>
-              <span className="text-gray-900">Your Startup</span>
-            </h1>
+              </div>
+              <h1 className="text-4xl md:text-5xl font-bold text-gray-900">
+                Your Startup
+              </h1>
+            </div>
             <p className="text-lg text-gray-600 mb-8">
               StartupPulse provides the guidance, resources, and network you need to transform your vision into a thriving business.
             </p>
