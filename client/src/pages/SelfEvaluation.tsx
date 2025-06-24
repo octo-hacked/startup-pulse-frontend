@@ -1,24 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { Helmet } from 'react-helmet';
-import { 
-  Form, 
-  FormControl, 
-  FormField, 
-  FormItem, 
-  FormLabel, 
-  FormMessage 
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage
 } from '@/components/ui/form';
-import { 
-  Card, 
-  CardContent 
+import {
+  Card,
+  CardContent
 } from '@/components/ui/card';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -31,6 +31,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { apiRequest } from '@/lib/queryClient';
 import { SelfEvaluationFormData } from '@/lib/types';
+import {
+  useAppContext
+} from '@/context/AppContext';
+import axios from 'axios';
+import { desc } from 'drizzle-orm';
+import { toast } from 'react-toastify';
 
 const formSchema = z.object({
   founderName: z.string().min(2, {
@@ -66,10 +72,16 @@ const formSchema = z.object({
   }),
 });
 
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 const SelfEvaluation = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { toast } = useToast();
   const [_, navigate] = useLocation();
+  const { backendUrl, token} = useAppContext();
+  const { initPay } = useAppContext();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -86,22 +98,38 @@ const SelfEvaluation = () => {
     },
   });
 
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+  type RazorpayOrder = {
+    id: string;
+    amount: number;
+    currency: string;
+    receipt?: string;
+  };
+
+  type RazorpayResponse = {
+    razorpay_payment_id: string;
+    razorpay_order_id: string;
+    razorpay_signature: string;
+  };
+
+  
+
+  const onSubmit = async (formData: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
-    
+
     try {
-      // First store the self-evaluation data
-      await apiRequest('POST', '/api/self-evaluation', values);
-      
-      // Then redirect to payment page
-      navigate('/checkout/self-evaluation/250');
-    } catch (error) {
+      const formType = 'basicProgram';
+      const razorpayResponse = await axios.post(backendUrl + '/api/form/submit', { formData, formType }, { headers: { token } })
+      initPay(razorpayResponse.data.order, formType);
+
+    }
+    catch (error) {
       console.error('Error submitting self-evaluation form:', error);
-      toast({
-        title: "Error",
-        description: "There was a problem submitting your form. Please try again.",
-        variant: "destructive",
-      });
+      toast.error(
+        <>
+          <strong>Error</strong>
+          <div>There was a problem submitting your form. Please try again.</div>
+        </>
+      );
       setIsSubmitting(false);
     }
   };
@@ -114,6 +142,25 @@ const SelfEvaluation = () => {
     { id: "scaling", label: "Scaling Operations" },
     { id: "other", label: "Other" },
   ];
+
+
+  const { subscriptionStatus,fetchSubscriptionStatus } = useAppContext();
+
+  useEffect(() => {
+    fetchSubscriptionStatus();
+    if (subscriptionStatus && subscriptionStatus.chatbot) {
+        toast('You have the chatbot access.');
+        navigate('/chatbot'); // Redirect to checkout page for chatbot subscription
+    }
+  }, [subscriptionStatus,token])
+
+
+  useEffect(() => {
+    if (token == '') {
+      navigate('/login')
+    }
+  }, [token]);
+
 
   return (
     <>
@@ -168,7 +215,7 @@ const SelfEvaluation = () => {
                 </ol>
               </CardContent>
             </Card>
-    
+
             <Card className="shadow-lg">
               <CardContent className="p-8">
                 <Form {...form}>
@@ -189,7 +236,7 @@ const SelfEvaluation = () => {
                             </FormItem>
                           )}
                         />
-                        
+
                         <FormField
                           control={form.control}
                           name="founderEmail"
@@ -203,7 +250,7 @@ const SelfEvaluation = () => {
                             </FormItem>
                           )}
                         />
-                        
+
                         <FormField
                           control={form.control}
                           name="startupName"
@@ -217,7 +264,7 @@ const SelfEvaluation = () => {
                             </FormItem>
                           )}
                         />
-                        
+
                         <FormField
                           control={form.control}
                           name="industry"
@@ -245,10 +292,10 @@ const SelfEvaluation = () => {
                         />
                       </div>
                     </div>
-                    
+
                     <div>
                       <h3 className="heading text-xl font-semibold text-dark mb-4">Business Details</h3>
-                      
+
                       <FormField
                         control={form.control}
                         name="businessDescription"
@@ -256,17 +303,17 @@ const SelfEvaluation = () => {
                           <FormItem className="mb-4">
                             <FormLabel>Describe your business (limit 500 characters)</FormLabel>
                             <FormControl>
-                              <Textarea 
-                                placeholder="What does your business do? What problem does it solve?" 
-                                className="min-h-[100px]" 
-                                {...field} 
+                              <Textarea
+                                placeholder="What does your business do? What problem does it solve?"
+                                className="min-h-[100px]"
+                                {...field}
                               />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={form.control}
                         name="stage"
@@ -309,7 +356,7 @@ const SelfEvaluation = () => {
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={form.control}
                         name="funding"
@@ -340,7 +387,7 @@ const SelfEvaluation = () => {
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={form.control}
                         name="teamSize"
@@ -364,7 +411,7 @@ const SelfEvaluation = () => {
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={form.control}
                         name="challenges"
@@ -389,22 +436,23 @@ const SelfEvaluation = () => {
                                               checked={field.value?.includes(option.id)}
                                               onCheckedChange={(checked) => {
                                                 const current = field.value || [];
-                                                
+
                                                 // Don't allow more than 3 selections
                                                 if (checked && current.length >= 3 && !current.includes(option.id)) {
-                                                  toast({
-                                                    title: "Maximum Selections Reached",
-                                                    description: "Please select up to 3 challenges.",
-                                                    variant: "destructive",
-                                                  });
+                                                  toast.error(
+                                                    <>
+                                                      <strong>Maximum Selections Reached</strong>
+                                                      <div>Please select up to 3 challenges.</div>
+                                                    </>
+                                                  );
                                                   return;
                                                 }
-                                                
+
                                                 return checked
                                                   ? field.onChange([...current, option.id])
                                                   : field.onChange(
-                                                      current.filter((value) => value !== option.id)
-                                                    );
+                                                    current.filter((value) => value !== option.id)
+                                                  );
                                               }}
                                             />
                                           </FormControl>
@@ -423,7 +471,7 @@ const SelfEvaluation = () => {
                         )}
                       />
                     </div>
-                    
+
                     <div className="bg-gray-50 p-4 rounded-md mb-6">
                       <div className="flex items-center justify-between">
                         <div>
@@ -433,9 +481,9 @@ const SelfEvaluation = () => {
                         <p className="text-xl font-bold text-dark">₹250</p>
                       </div>
                     </div>
-                
-                    <Button 
-                      type="submit" 
+
+                    <Button
+                      type="submit"
                       className="w-full bg-primary hover:bg-primary-dark"
                       disabled={isSubmitting}
                     >

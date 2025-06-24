@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState,useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { Helmet } from 'react-helmet';
 import { 
@@ -29,6 +29,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { apiRequest } from '@/lib/queryClient';
+import { useAppContext } from '@/context/AppContext';
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -60,7 +61,8 @@ const Mentorship = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const [_, navigate] = useLocation();
-
+  const { backendUrl,token } = useAppContext();
+  
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -94,6 +96,12 @@ const Mentorship = () => {
     }
   };
 
+  useEffect(() => {
+       if (token==''){
+        navigate('/login')
+       }
+      }, [token]);
+  
   return (
     <>
       <Helmet>

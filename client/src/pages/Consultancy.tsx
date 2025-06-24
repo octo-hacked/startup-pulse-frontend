@@ -1,39 +1,40 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { Helmet } from 'react-helmet';
-import { 
-  Form, 
-  FormControl, 
-  FormField, 
-  FormItem, 
-  FormLabel, 
-  FormMessage 
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage
 } from '@/components/ui/form';
-import { 
-  Card, 
-  CardContent 
+import {
+  Card,
+  CardContent
 } from '@/components/ui/card';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { useToast } from '@/hooks/use-toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { apiRequest } from '@/lib/queryClient';
 import { format } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Consultant } from '@/lib/types';
+import { useAppContext } from '@/context/AppContext';
+import axios from 'axios';
+import { toast } from 'react-toastify';
 
 const consultants: Consultant[] = [
   {
@@ -57,68 +58,62 @@ const consultants: Consultant[] = [
 ];
 
 const formSchema = z.object({
-  name: z.string().min(2, {
-    message: "Name must be at least 2 characters.",
-  }),
-  email: z.string().email({
-    message: "Please enter a valid email address.",
-  }),
-  consultant: z.string().min(1, {
-    message: "Please select a consultant.",
-  }),
-  date: z.date({
-    required_error: "Please select a date.",
-  }),
-  time: z.string().min(1, {
-    message: "Please select a time slot.",
-  }),
-  topics: z.string().min(10, {
-    message: "Please describe what you would like to discuss in at least 10 characters.",
-  }).max(500, {
-    message: "Description must not exceed 500 characters.",
-  }),
+  fullName: z.string().min(2, { message: "Full name must be at least 2 characters." }),
+  email: z.string().email({ message: "Please enter a valid email address." }),
+  consultant: z.string().min(1, { message: "Please select a consultant." }),
+  preferredDate: z.date({ required_error: "Please select a date." }),
+  preferredTime: z.string().min(1, { message: "Please select a time slot." }),
+  topics: z.string().min(10, { message: "Describe your discussion topics (min 10 characters)." }).max(500, { message: "Max 500 characters allowed." }),
 });
 
 const Consultancy = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { toast } = useToast();
   const [_, navigate] = useLocation();
+  const { backendUrl, token, initPay } = useAppContext();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: "",
+      fullName: "",
       email: "",
       consultant: "",
+      preferredDate: undefined,
+      preferredTime: "",
       topics: "",
     },
   });
 
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+  const onSubmit = async (formData: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
-    
-    // Format date to string for API
-    const formattedValues = {
-      ...values,
-      date: format(values.date, "yyyy-MM-dd"),
-    };
-    
     try {
-      // First store the consultation data
-      await apiRequest('POST', '/api/book-consultation', formattedValues);
-      
-      // Then redirect to payment page
-      navigate('/checkout/consultancy/1000');
+      const formType = 'expertProgram';
+      const payload = {
+        ...formData,
+        evaluationFee: 1000,
+      };
+      const razorpayResponse = await axios.post(
+        backendUrl + '/api/form/submit',
+        { formData: payload, formType },
+        { headers: { token } }
+      );
+      initPay(razorpayResponse.data.order, formType);
     } catch (error) {
-      console.error('Error booking consultation:', error);
-      toast({
-        title: "Error",
-        description: "There was a problem booking your consultation. Please try again.",
-        variant: "destructive",
-      });
+      console.error('Error submitting form:', error);
+      toast.error(
+        <>
+          <strong>Error</strong>
+          <div>There was a problem submitting your form. Please try again.</div>
+        </>
+      );
       setIsSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    if (token === '') {
+      navigate('/login');
+    }
+  }, [token]);
 
   return (
     <>
@@ -126,6 +121,7 @@ const Consultancy = () => {
         <title>Expert Consultancy - Startup Pulse</title>
         <meta name="description" content="Book personalized advice sessions with industry experts to overcome your specific business challenges." />
       </Helmet>
+
       <section className="py-16 bg-white">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
@@ -135,20 +131,20 @@ const Consultancy = () => {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 max-w-5xl mx-auto">
             <div>
-              <img 
-                src="https://images.unsplash.com/photo-1577412647305-991150c7d163?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" 
-                alt="Business consultation session" 
+              <img
+                src="https://images.unsplash.com/photo-1577412647305-991150c7d163?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80"
+                alt="Business consultation session"
                 className="rounded-lg shadow-lg w-full h-auto"
               />
-              
+
               <div className="mt-8">
                 <h3 className="heading text-2xl font-semibold text-dark mb-4">Our Consultants</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   {consultants.map((consultant) => (
                     <div key={consultant.id} className="text-center">
-                      <img 
-                        src={consultant.image} 
-                        alt={consultant.name} 
+                      <img
+                        src={consultant.image}
+                        alt={consultant.name}
                         className="w-20 h-20 rounded-full mx-auto mb-2 object-cover"
                       />
                       <p className="font-medium text-dark">{consultant.name}</p>
@@ -158,7 +154,7 @@ const Consultancy = () => {
                 </div>
               </div>
             </div>
-            
+
             <div>
               <Card className="shadow-lg">
                 <CardContent className="p-8">
@@ -166,7 +162,7 @@ const Consultancy = () => {
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                       <FormField
                         control={form.control}
-                        name="name"
+                        name="fullName"
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Full Name</FormLabel>
@@ -177,7 +173,7 @@ const Consultancy = () => {
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={form.control}
                         name="email"
@@ -191,7 +187,7 @@ const Consultancy = () => {
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={form.control}
                         name="consultant"
@@ -215,10 +211,10 @@ const Consultancy = () => {
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={form.control}
-                        name="date"
+                        name="preferredDate"
                         render={({ field }) => (
                           <FormItem className="flex flex-col">
                             <FormLabel>Preferred Date</FormLabel>
@@ -227,16 +223,9 @@ const Consultancy = () => {
                                 <FormControl>
                                   <Button
                                     variant={"outline"}
-                                    className={cn(
-                                      "w-full pl-3 text-left font-normal",
-                                      !field.value && "text-muted-foreground"
-                                    )}
+                                    className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
                                   >
-                                    {field.value ? (
-                                      format(field.value, "PPP")
-                                    ) : (
-                                      <span>Pick a date</span>
-                                    )}
+                                    {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
                                     <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                   </Button>
                                 </FormControl>
@@ -247,7 +236,6 @@ const Consultancy = () => {
                                   selected={field.value}
                                   onSelect={field.onChange}
                                   disabled={(date) => {
-                                    // Disable dates in the past and weekends
                                     const today = new Date();
                                     today.setHours(0, 0, 0, 0);
                                     const day = date.getDay();
@@ -261,10 +249,10 @@ const Consultancy = () => {
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={form.control}
-                        name="time"
+                        name="preferredTime"
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Preferred Time</FormLabel>
@@ -287,7 +275,7 @@ const Consultancy = () => {
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={form.control}
                         name="topics"
@@ -295,24 +283,24 @@ const Consultancy = () => {
                           <FormItem>
                             <FormLabel>Topics to Discuss</FormLabel>
                             <FormControl>
-                              <Textarea 
-                                placeholder="What would you like to discuss during your consultation?" 
-                                className="min-h-[100px]" 
-                                {...field} 
+                              <Textarea
+                                placeholder="What would you like to discuss during your consultation?"
+                                className="min-h-[100px]"
+                                {...field}
                               />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      
+
                       <div className="p-4 bg-gray-50 rounded-md mb-4">
                         <p className="font-medium text-dark mb-1">Consultation Fee</p>
                         <p className="text-gray-600">₹1,000 per hour</p>
                       </div>
-                      
-                      <Button 
-                        type="submit" 
+
+                      <Button
+                        type="submit"
                         className="w-full bg-primary hover:bg-primary-dark"
                         disabled={isSubmitting}
                       >

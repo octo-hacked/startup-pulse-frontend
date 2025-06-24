@@ -8,6 +8,7 @@ import FAQSection from '@/components/sections/FAQSection';
 import CTASection from '@/components/sections/CTASection';
 import ContactSection from '@/components/sections/ContactSection';
 import { Helmet } from 'react-helmet';
+import Footer from '@/components/layout/Footer';
 
 const Home = () => {
   return (
@@ -25,6 +26,7 @@ const Home = () => {
       <FAQSection />
       <CTASection />
       <ContactSection />
+      <Footer />
     </>
   );
 };
